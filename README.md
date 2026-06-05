@@ -8,14 +8,17 @@ Trademarks: This software listing is packaged by Bitnami. The respective tradema
 ## TL;DR
 
 ```console
-docker run --name openldap bitnami/openldap:latest
+docker run --name openldap ghcr.io/CGNing/openldap:latest
 ```
 
 ## Using `docker-compose.yml`
 
 The docker-compose.yaml file of this container can be found in the [Bitnami Containers repository](https://github.com/bitnami/containers/).
 
-[https://github.com/bitnami/containers/tree/main/bitnami/openldap/docker-compose.yml](https://github.com/bitnami/containers/tree/main/bitnami/openldap/docker-compose.yml)
+[https://github.com/bitnami/containers/tree/master/docker/docker-compose.yml](https://github.com/bitnami/containers/tree/master/docker/docker-compose.yml)
+
+## 20260603
+- change base image to debian:trixie-slim
 
 ## Why use Bitnami Secure Images?
 

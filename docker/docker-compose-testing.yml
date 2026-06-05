@@ -3,13 +3,26 @@
 
 services:
   openldap:
-    image: docker.io/bitnami/openldap:2.6
+    build:
+      context: ../image
+      dockerfile: Dockerfile
+    develop:
+      watch:
+        - action: rebuild
+          path: ../image
+    init: true
+    stdin_open: true
+    tty: true
     ports:
       - '1389:1389'
       - '1636:1636'
-    volumes:
-      - 'openldap_data:/bitnami/openldap'
+    environment:
+      BITNAMI_DEBUG: true
+      LDAP_LOGLEVEL: -1
+    # volumes:
+    #   - 'openldap_data:/openldap'
 
 volumes:
   openldap_data:
     driver: local
+
