@@ -7,11 +7,11 @@ on:
       - master
     paths:
       - '**/*.sh'
-      - 'Dockerfile'
+      - 'image/Dockerfile'
   pull_request:
     paths:
       - '**/*.sh'
-      - 'Dockerfile'
+      - 'image/Dockerfile'
 
 permissions: {}
 
@@ -30,5 +30,5 @@ jobs:
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.3.0
         with:
-          dockerfile: Dockerfile
+          dockerfile: image/Dockerfile
           failure-threshold: warning
