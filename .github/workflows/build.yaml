@@ -1,0 +1,141 @@
+name: Build
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+jobs:
+  precheck:
+    name: precheck
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+      contents: read
+    outputs:
+      latest_tag: ${{ steps.tags.outputs.latest_tag }}
+      debian_snapshot: ${{ steps.tags.outputs.debian_snapshot }}
+      latest_snapshot: ${{ steps.tags.outputs.latest_snapshot }}
+      latest_version: ${{ steps.tags.outputs.latest_version }}
+      latest_major: ${{ steps.tags.outputs.latest_major }}
+      latest_codename: ${{ steps.tags.outputs.latest_codename }}
+      exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - name: Get remote package data
+        id: tags
+        run: |
+          set -e -o pipefail
+
+          debian_release=$(curl -fsSL https://deb.debian.org/debian/dists/stable/Release)
+          debian_version=$(echo "$debian_release" | awk -F': ' '/^Version:/ {print $2}')
+          debian_codename=$(echo "$debian_release" | awk -F': ' '/^Codename:/ {print $2}')
+          debian_version_major=${debian_version%%.*}
+
+          debian_snapshot=$(curl -fsSL "https://registry.hub.docker.com/v2/repositories/library/debian/tags?page_size=100" |
+            jq -r '.results[].name' |
+            grep "^${debian_codename}-[0-9]\+$" |
+            sort -Vr |
+            head -n1)
+          if [ -z "$debian_snapshot" ]; then
+            echo "No docker snapshot tag found for ${debian_codename}"
+            exit 1
+          fi
+
+          latest_tag=$(curl -fsSL -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/tags?per_page=100 |
+            jq -r '.[].name |
+            select(startswith("v"))' |
+            head -n 1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag=${{ github.event.repository.default_branch }}
+            echo "WARNING: No tag found, using '${latest_tag}' as fallback" >&2
+          fi
+
+          echo "latest_tag=${latest_tag}" >> $GITHUB_OUTPUT
+          echo "debian_snapshot=${debian_snapshot}" >> $GITHUB_OUTPUT
+          echo "latest_snapshot=${latest_tag}-${debian_snapshot}" >> $GITHUB_OUTPUT
+          echo "latest_version=${latest_tag}-${debian_version}" >> $GITHUB_OUTPUT
+          echo "latest_major=${latest_tag}-${debian_version_major}" >> $GITHUB_OUTPUT
+          echo "latest_codename=${latest_tag}-${debian_codename}" >> $GITHUB_OUTPUT
+      - name: Check if the tag exists in GHCR
+        id: check
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}
+          TAG: ${{ steps.tags.outputs.latest_snapshot }}
+        run: |
+          if docker manifest inspect "${IMAGE}:${TAG}" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.tags.outputs.latest_snapshot }} exists"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.tags.outputs.latest_snapshot }} do not exists"
+          fi
+  shellcheck:
+    name: Test
+    needs: precheck
+    uses: ./.github/workflows/check.yaml
+  build:
+    name: Build
+    needs: [precheck, shellcheck]
+    if: needs.precheck.outputs.exists == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.precheck.outputs.latest_tag }}
+          fetch-depth: 0
+      - name: Get repo name
+        id: repo_name
+        run: |
+          set -e -o pipefail
+          repo_name="${GITHUB_REPOSITORY##*/}"
+          if [ -z "$repo_name" ]; then
+            echo "ERROR: Unable to determine repository name from GITHUB_REPOSITORY ${GITHUB_REPOSITORY}" >&2
+            exit 1
+          fi
+          echo "repo_name=${repo_name}" >> $GITHUB_OUTPUT
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          context: git
+          images: |
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ needs.precheck.outputs.latest_snapshot }},priority=450
+            type=raw,value=${{ needs.precheck.outputs.latest_version }},priority=350
+            type=raw,value=${{ needs.precheck.outputs.latest_major }},priority=250
+            type=raw,value=${{ needs.precheck.outputs.latest_codename }},priority=150
+            type=raw,value=latest,priority=100
+          labels: |
+            org.opencontainers.image.title=${{ steps.repo_name.outputs.repo_name }}
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./image
+          push: true
+          provenance: false
+          platforms: linux/amd64,linux/arm64,linux/arm
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          build-args: |
+            DEBIAN_SNAPSHOT=${{ needs.precheck.outputs.debian_snapshot }}
