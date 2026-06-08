@@ -1,0 +1,79 @@
+--- libopenldap.sh
++++ libopenldap.sh
+@@ -28,13 +28,13 @@
+ # Paths
+-export LDAP_BASE_DIR="/opt/bitnami/openldap"
+-export LDAP_BIN_DIR="${LDAP_BASE_DIR}/bin"
+-export LDAP_SBIN_DIR="${LDAP_BASE_DIR}/sbin"
+-export LDAP_CONF_DIR="${LDAP_BASE_DIR}/etc"
+-export LDAP_SHARE_DIR="${LDAP_BASE_DIR}/share"
+-export LDAP_VAR_DIR="${LDAP_BASE_DIR}/var"
+-export LDAP_VOLUME_DIR="/bitnami/openldap"
++export LDAP_BASE_DIR=""
++export LDAP_BIN_DIR="/usr/bin"
++export LDAP_SBIN_DIR="/usr/sbin"
++export LDAP_CONF_DIR="/etc/ldap"
++export LDAP_SHARE_DIR="/usr/share/slapd"
++export LDAP_VAR_DIR="/var/lib/ldap"
++export LDAP_VOLUME_DIR="/openldap"
+ export LDAP_DATA_DIR="${LDAP_VOLUME_DIR}/data"
+ export LDAP_ACCESSLOG_DATA_DIR="${LDAP_DATA_DIR}/accesslog"
+ export LDAP_ONLINE_CONF_DIR="${LDAP_VOLUME_DIR}/slapd.d"
+-export LDAP_PID_FILE="${LDAP_VAR_DIR}/run/slapd.pid"
++export LDAP_PID_FILE="/run/slapd/slapd.pid"
+ export LDAP_CUSTOM_LDIF_DIR="${LDAP_CUSTOM_LDIF_DIR:-/ldifs}"
+@@ -312,4 +312,4 @@
+ objectClass: olcGlobal
+ cn: config
+-olcArgsFile: /opt/bitnami/openldap/var/run/slapd.args
+-olcPidFile: /opt/bitnami/openldap/var/run/slapd.pid
++olcArgsFile: /run/slapd/slapd.args
++olcPidFile: /run/slapd/slapd.pid
+@@ -320,8 +320,10 @@
+ dn: cn=module,cn=config
+ cn: module
+ objectClass: olcModuleList
+-olcModulePath: /opt/bitnami/openldap/libexec/openldap
++olcModulePath: /usr/lib/ldap
+ olcModuleLoad: pw-sha2.so
++## openldap debian version have no built-in mdb module
++olcModuleLoad: back_mdb
+ 
+ #
+ # Schema settings
+@@ -333,3 +335,3 @@
+ 
+-include: file:///opt/bitnami/openldap/etc/schema/core.ldif
++include: file:///etc/ldap/schema/core.ldif
+ 
+@@ -374,3 +376,3 @@
+ olcMonitoring: FALSE
+-olcDbDirectory:	/bitnami/openldap/data
++olcDbDirectory:	/var/lib/ldap
+ olcDbIndex: objectClass eq,pres
+@@ -829,3 +831,3 @@
+     info "Configuring LDAP ppolicy"
+-    ldap_load_module "/opt/bitnami/openldap/lib/openldap" "ppolicy.so"
++    ldap_load_module "/usr/lib/ldap" "ppolicy.so"
+     # create configuration
+@@ -905,3 +907,3 @@
+     # Load module
+-    ldap_load_module "/opt/bitnami/openldap/lib/openldap" "accesslog.so"
++    ldap_load_module "/usr/lib/ldap" "accesslog.so"
+     # Create AccessLog database
+@@ -919,3 +921,3 @@
+ EOF
+-    mkdir /bitnami/openldap/data/accesslog
++    mkdir -p /var/lib/ldap/accesslog
+     debug_execute ldapadd -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/accesslog_create_accesslog_database.ldif"
+@@ -950,3 +952,3 @@
+     # Load module
+-    ldap_load_module "/opt/bitnami/openldap/lib/openldap" "syncprov.so"
++    ldap_load_module "/usr/lib/ldap" "syncprov.so"
+     # Add Sync Provider overlay
+
+--- openldap/postunpack.sh
++++ openldap/postunpack.sh
+@@ -29,1 +29,1 @@
+-setcap CAP_NET_BIND_SERVICE=+eip /opt/bitnami/openldap/sbin/slapd
++setcap CAP_NET_BIND_SERVICE=+eip ${LDAP_SBIN_DIR}/slapd
