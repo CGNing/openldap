@@ -121,7 +121,7 @@ Some key concepts:
 
 ### Data Persistence
 
-To ensure that the OpenLDAP state is retained across container restarts and updates, it is recommended to mount a volume at `/bitnami/openldap`.
+To ensure that the OpenLDAP state is retained across container restarts and updates, it is recommended to mount a volume at `/openldap`.
 
 ### Overlays
 
