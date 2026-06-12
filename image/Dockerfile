@@ -9,6 +9,7 @@ FROM debian:${DEBIAN_SNAPSHOT}-slim
 ARG VERSION_OPENLDAP="2.6.10+dfsg-1"
 
 SHELL ["/bin/bash", "-o", "errexit", "-o", "nounset", "-o", "pipefail", "-c"]
+
 # Install required system packages and dependencies
 RUN apt-get update && \
     apt-get upgrade -y && \
@@ -20,6 +21,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives
 
+# unix socket need /run/slapd/
 RUN rm -rf "/etc/ldap/slapd.d/" "/var/lib/ldap/" && \
     mkdir -p /run/slapd/ && chmod g+rwX /run/slapd/
 

@@ -49,7 +49,7 @@
 @@ -374,3 +376,3 @@
  olcMonitoring: FALSE
 -olcDbDirectory:	/bitnami/openldap/data
-+olcDbDirectory:	/var/lib/ldap
++olcDbDirectory:	/openldap/data
  olcDbIndex: objectClass eq,pres
 @@ -829,3 +831,3 @@
      info "Configuring LDAP ppolicy"
@@ -64,7 +64,7 @@
 @@ -919,3 +921,3 @@
  EOF
 -    mkdir /bitnami/openldap/data/accesslog
-+    mkdir -p /var/lib/ldap/accesslog
++    mkdir -p /openldap/data/accesslog
      debug_execute ldapadd -Q -Y EXTERNAL -H "ldapi:///" -f "${LDAP_SHARE_DIR}/accesslog_create_accesslog_database.ldif"
 @@ -950,3 +952,3 @@
      # Load module
